@@ -16,6 +16,7 @@ const std::vector<char const*> validationLayers = {
     "VK_LAYER_KHRONOS_validation",
 };
 
+
 std::vector<const char*> requiredDeviceExtensions = {vk::KHRSwapchainExtensionName};
 
 #ifdef NDEBUG
@@ -40,6 +41,8 @@ class HelloTriangleApplication {
     vk::raii::Instance instance{nullptr};
     vk::raii::DebugUtilsMessengerEXT debugMessenger{nullptr};
     vk::raii::PhysicalDevice physicalDevice{nullptr};
+    vk::raii::Device logicalDevice{nullptr};
+    vk::raii::Queue graphicsQueue{nullptr};
 
     GLFWwindow* mWindow = nullptr;
 
@@ -57,6 +60,7 @@ class HelloTriangleApplication {
         return vk::False;
     }
 
+
     void initWindow() {
         glfwInit();
 
@@ -71,7 +75,9 @@ class HelloTriangleApplication {
         createInstance();
         setupDebugMessenger();
         pickPhysicalDevice();
+        createLogicalDevice();
     }
+
 
     void setupDebugMessenger() {
         if (!enableValidationlayers)
@@ -122,7 +128,7 @@ class HelloTriangleApplication {
             requiredLayers.assign(validationLayers.begin(), validationLayers.end());
         }
 
-        auto layerProperties = context.enumerateInstanceLayerProperties();
+        std::vector<vk::LayerProperties> layerProperties = context.enumerateInstanceLayerProperties();
 
         const char* unsupportedLayer = nullptr;
 
@@ -147,16 +153,16 @@ class HelloTriangleApplication {
         }
 
 
-        auto requiredExtensions = getRequiredInstanceExtensions();
+        std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 
-        auto extensionProperties = context.enumerateInstanceExtensionProperties();
-        auto unsupportedPropertyIt = std::ranges::find_if(requiredExtensions,
-                                                          [&extensionProperties](auto const& requiredExtension) {
-                                                              return std::ranges::none_of(extensionProperties,
-                                                                                          [requiredExtension](auto const& extensionProperty) {
-                                                                                              return strcmp(extensionProperty.extensionName, requiredExtension) == 0;
-                                                                                          });
-                                                          });
+        std::vector<vk::ExtensionProperties> extensionProperties = context.enumerateInstanceExtensionProperties();
+        std::vector<const char*>::iterator unsupportedPropertyIt = std::ranges::find_if(requiredExtensions,
+                                                                                        [&extensionProperties](auto const& requiredExtension) {
+                                                                                            return std::ranges::none_of(extensionProperties,
+                                                                                                                        [requiredExtension](auto const& extensionProperty) {
+                                                                                                                            return strcmp(extensionProperty.extensionName, requiredExtension) == 0;
+                                                                                                                        });
+                                                                                        });
 
         if (unsupportedPropertyIt != requiredExtensions.end()) {
             throw std::runtime_error("Required extension not supported: " + std::string(*unsupportedPropertyIt));
@@ -193,24 +199,24 @@ class HelloTriangleApplication {
 
     void pickPhysicalDevice() {
         std::vector<vk::raii::PhysicalDevice> physicalDevices = instance.enumeratePhysicalDevices();
-        auto const devIter = std::ranges::find_if(physicalDevices, [&](auto const& physicalDevice) {
+        std::vector<vk::raii::PhysicalDevice>::iterator const devIt = std::ranges::find_if(physicalDevices, [&](auto const& physicalDevice) {
             return isDeviceSuitable(physicalDevice);
         });
 
-        if (devIter == physicalDevices.end()) {
+        if (devIt == physicalDevices.end()) {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
 
-        physicalDevice = *devIter;
+        physicalDevice = *devIt;
     }
 
     bool isDeviceSuitable(vk::raii::PhysicalDevice const& physicalDevice) {
         bool supprortVulkan1_3 = physicalDevice.getProperties().apiVersion >= VK_API_VERSION_1_3;
 
-        auto queueFamilies = physicalDevice.getQueueFamilyProperties();
+        std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
         bool supportGraphics = std::ranges::any_of(queueFamilies, [](auto const& queueFamily) { return !!(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics); });
 
-        auto avaiableDeviceExtensions = physicalDevice.enumerateDeviceExtensionProperties();
+        std::vector<vk::ExtensionProperties> avaiableDeviceExtensions = physicalDevice.enumerateDeviceExtensionProperties();
         bool supportsAllRequiredExtensions = std::ranges::all_of(requiredDeviceExtensions,
                                                                  [&avaiableDeviceExtensions](auto const* requiredDeviceExtension) {
                                                                      return std::ranges::any_of(avaiableDeviceExtensions, [requiredDeviceExtension](auto const& avaiableDeviceExtension) {
@@ -227,6 +233,46 @@ class HelloTriangleApplication {
                                         features.template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
 
         return supprortVulkan1_3 && supportGraphics && supportsAllRequiredExtensions && supportsRequiredFeatures;
+    }
+
+
+    void createLogicalDevice() {
+        std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+        std::vector<vk::QueueFamilyProperties>::iterator graphicsQueueFamilyPropertyIt = std::ranges::find_if(queueFamilyProperties, [](auto const& queueFamilyProperty) {
+            return !!(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eGraphics);
+        });
+
+        uint32_t graphicsIndex = static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyPropertyIt));
+
+        float queuePriority = 0.5f;
+
+        vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
+            .queueFamilyIndex = graphicsIndex,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority,
+        };
+
+        vk::StructureChain<vk::PhysicalDeviceFeatures2,
+                           vk::PhysicalDeviceVulkan11Features,
+                           vk::PhysicalDeviceVulkan13Features,
+                           vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
+            featureChain = {
+                {},
+                {.shaderDrawParameters = true},
+                {.dynamicRendering = true},
+                {.extendedDynamicState = true},
+            };
+
+        vk::DeviceCreateInfo deviceCreateInfo{
+            .pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
+            .queueCreateInfoCount = 1,
+            .pQueueCreateInfos = &deviceQueueCreateInfo,
+            .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
+            .ppEnabledExtensionNames = requiredDeviceExtensions.data(),
+        };
+
+        logicalDevice = vk::raii::Device(physicalDevice, deviceCreateInfo);
+        graphicsQueue = vk::raii::Queue(logicalDevice, graphicsIndex, 0);
     }
 };
 
