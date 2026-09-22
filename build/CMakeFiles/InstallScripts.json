@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/muggle/hlt/c2p/vulkan_learn/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
