@@ -16,7 +16,6 @@ const std::vector<char const*> validationLayers = {
     "VK_LAYER_KHRONOS_validation",
 };
 
-
 std::vector<const char*> requiredDeviceExtensions = {vk::KHRSwapchainExtensionName};
 
 #ifdef NDEBUG
@@ -37,11 +36,12 @@ class HelloTriangleApplication {
 
 
   private:
-    vk::raii::Context context;
-    vk::raii::Instance instance{nullptr};
-    vk::raii::DebugUtilsMessengerEXT debugMessenger{nullptr};
-    vk::raii::PhysicalDevice physicalDevice{nullptr};
-    vk::raii::Device logicalDevice{nullptr};
+    vk::raii::Context mContext;
+    vk::raii::Instance mInstance{nullptr};
+    vk::raii::DebugUtilsMessengerEXT mDebugMessenger{nullptr};
+    vk::raii::SurfaceKHR mSurface{nullptr};
+    vk::raii::PhysicalDevice mPhysicalDevice{nullptr};
+    vk::raii::Device mLogicalDevice{nullptr};
     vk::raii::Queue graphicsQueue{nullptr};
 
     GLFWwindow* mWindow = nullptr;
@@ -74,6 +74,7 @@ class HelloTriangleApplication {
     void initVulkan() {
         createInstance();
         setupDebugMessenger();
+        createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
     }
@@ -97,7 +98,7 @@ class HelloTriangleApplication {
             .messageType = messageTypeFlags,
             .pfnUserCallback = &debugCallback};
 
-        debugMessenger = instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
+        mDebugMessenger = mInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
     }
 
 
@@ -122,13 +123,12 @@ class HelloTriangleApplication {
             .engineVersion = VK_MAKE_VERSION(1, 0, 0),
             .apiVersion = vk::ApiVersion14};
 
-
         std::vector<char const*> requiredLayers;
         if (enableValidationlayers) {
             requiredLayers.assign(validationLayers.begin(), validationLayers.end());
         }
 
-        std::vector<vk::LayerProperties> layerProperties = context.enumerateInstanceLayerProperties();
+        std::vector<vk::LayerProperties> layerProperties = mContext.enumerateInstanceLayerProperties();
 
         const char* unsupportedLayer = nullptr;
 
@@ -152,10 +152,9 @@ class HelloTriangleApplication {
             throw std::runtime_error("Required layer not supported: " + std::string(unsupportedLayer));
         }
 
-
         std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 
-        std::vector<vk::ExtensionProperties> extensionProperties = context.enumerateInstanceExtensionProperties();
+        std::vector<vk::ExtensionProperties> extensionProperties = mContext.enumerateInstanceExtensionProperties();
         std::vector<const char*>::iterator unsupportedPropertyIt = std::ranges::find_if(requiredExtensions,
                                                                                         [&extensionProperties](auto const& requiredExtension) {
                                                                                             return std::ranges::none_of(extensionProperties,
@@ -175,7 +174,7 @@ class HelloTriangleApplication {
             .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
             .ppEnabledExtensionNames = requiredExtensions.data()};
 
-        instance = vk::raii::Instance(context, createInfo);
+        mInstance = vk::raii::Instance(mContext, createInfo);
         std::cout << "Vulkan instance created successfully!" << std::endl;
     }
 
@@ -197,8 +196,9 @@ class HelloTriangleApplication {
         return extensions;
     }
 
+
     void pickPhysicalDevice() {
-        std::vector<vk::raii::PhysicalDevice> physicalDevices = instance.enumeratePhysicalDevices();
+        std::vector<vk::raii::PhysicalDevice> physicalDevices = mInstance.enumeratePhysicalDevices();
         std::vector<vk::raii::PhysicalDevice>::iterator const devIt = std::ranges::find_if(physicalDevices, [&](auto const& physicalDevice) {
             return isDeviceSuitable(physicalDevice);
         });
@@ -207,8 +207,9 @@ class HelloTriangleApplication {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
 
-        physicalDevice = *devIt;
+        mPhysicalDevice = *devIt;
     }
+
 
     bool isDeviceSuitable(vk::raii::PhysicalDevice const& physicalDevice) {
         bool supprortVulkan1_3 = physicalDevice.getProperties().apiVersion >= VK_API_VERSION_1_3;
@@ -237,20 +238,20 @@ class HelloTriangleApplication {
 
 
     void createLogicalDevice() {
-        std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-        std::vector<vk::QueueFamilyProperties>::iterator graphicsQueueFamilyPropertyIt = std::ranges::find_if(queueFamilyProperties, [](auto const& queueFamilyProperty) {
-            return !!(queueFamilyProperty.queueFlags & vk::QueueFlagBits::eGraphics);
-        });
+        std::vector<vk::QueueFamilyProperties> queueFamilyProperties = mPhysicalDevice.getQueueFamilyProperties();
 
-        uint32_t graphicsIndex = static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyPropertyIt));
+        uint32_t queueIndex = ~0;
+        for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++) {
+            if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) && mPhysicalDevice.getSurfaceSupportKHR(qfpIndex, *mSurface)) {
+                queueIndex = qfpIndex;
+                break;
+            }
+        }
 
-        float queuePriority = 0.5f;
+        if (queueIndex == ~0) {
+            throw std::runtime_error("Could not find a queue for graphics and present -> terminating");
+        }
 
-        vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
-            .queueFamilyIndex = graphicsIndex,
-            .queueCount = 1,
-            .pQueuePriorities = &queuePriority,
-        };
 
         vk::StructureChain<vk::PhysicalDeviceFeatures2,
                            vk::PhysicalDeviceVulkan11Features,
@@ -263,6 +264,14 @@ class HelloTriangleApplication {
                 {.extendedDynamicState = true},
             };
 
+        float queuePriority = 0.5f;
+
+        vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
+            .queueFamilyIndex = queueIndex,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority,
+        };
+
         vk::DeviceCreateInfo deviceCreateInfo{
             .pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
             .queueCreateInfoCount = 1,
@@ -271,10 +280,22 @@ class HelloTriangleApplication {
             .ppEnabledExtensionNames = requiredDeviceExtensions.data(),
         };
 
-        logicalDevice = vk::raii::Device(physicalDevice, deviceCreateInfo);
-        graphicsQueue = vk::raii::Queue(logicalDevice, graphicsIndex, 0);
+        mLogicalDevice = vk::raii::Device(mPhysicalDevice, deviceCreateInfo);
+        graphicsQueue = vk::raii::Queue(mLogicalDevice, queueIndex, 0);
+    }
+
+
+    void createSurface() {
+        VkSurfaceKHR _surface;
+
+        if (glfwCreateWindowSurface(*mInstance, mWindow, nullptr, &_surface) != 0) {
+            throw std::runtime_error("failed to create window surface!");
+        }
+
+        mSurface = vk::raii::SurfaceKHR(mInstance, _surface);
     }
 };
+
 
 int main() {
     try {
