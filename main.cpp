@@ -7,6 +7,9 @@
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
+#include <cstdint>
+#include <limits>
+#include <algorithm>
 
 
 static constexpr uint32_t WIDTH = 800;
@@ -43,9 +46,11 @@ class HelloTriangleApplication {
     vk::raii::PhysicalDevice mPhysicalDevice{nullptr};
     vk::raii::Device mLogicalDevice{nullptr};
     vk::raii::Queue graphicsQueue{nullptr};
-
+    vk::raii::SwapchainKHR mSwapChain = nullptr;
+    std::vector<vk::Image> mSwapChainImages;
     GLFWwindow* mWindow = nullptr;
-
+    vk::Extent2D mSwapChainExtent;
+    vk::SurfaceFormatKHR mSwapChainSurfaceFormat;
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
         vk::DebugUtilsMessageTypeFlagsEXT type,
@@ -77,6 +82,7 @@ class HelloTriangleApplication {
         createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
+        createSwapChain();
     }
 
 
@@ -293,6 +299,73 @@ class HelloTriangleApplication {
         }
 
         mSurface = vk::raii::SurfaceKHR(mInstance, _surface);
+    }
+
+
+    vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
+        const std::vector<vk::SurfaceFormatKHR>::const_iterator formatIt = std::ranges::find_if(availableFormats, [](const vk::SurfaceFormatKHR& format) {
+            return format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
+        });
+
+        return formatIt != availableFormats.end() ? *formatIt : availableFormats[0];
+    }
+
+
+    vk::PresentModeKHR chooseSwapPresentMode(std::vector<vk::PresentModeKHR> const& availablePresentModes) {
+        return vk::PresentModeKHR::eFifo;
+    }
+
+
+    vk::Extent2D chooseSwapExtent(vk::SurfaceCapabilitiesKHR const& surfaceCapabilities) {
+        if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+            return surfaceCapabilities.currentExtent;
+        }
+
+        int width, height;
+
+        glfwGetFramebufferSize(mWindow, &width, &height);
+
+        return {
+            std::clamp<uint32_t>(width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width),
+            std::clamp<uint32_t>(height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height)};
+    }
+
+
+    uint32_t chooseSwapMinImageCount(vk::SurfaceCapabilitiesKHR const& surfaceCapabilities) {
+        auto minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
+
+        if ((surfaceCapabilities.maxImageCount > 0) && (surfaceCapabilities.maxImageCount < minImageCount)) {
+            minImageCount = surfaceCapabilities.maxImageCount;
+        }
+
+        return minImageCount;
+    }
+
+
+    void createSwapChain() {
+        vk::SurfaceCapabilitiesKHR surfaceCapabilities = mPhysicalDevice.getSurfaceCapabilitiesKHR(*mSurface);
+        std::vector<vk::SurfaceFormatKHR> availableFormats = mPhysicalDevice.getSurfaceFormatsKHR(*mSurface);
+        std::vector<vk::PresentModeKHR> availablePresentModes = mPhysicalDevice.getSurfacePresentModesKHR(*mSurface);
+
+        mSwapChainExtent = chooseSwapExtent(surfaceCapabilities);
+        mSwapChainSurfaceFormat = chooseSwapSurfaceFormat(availableFormats);
+        uint32_t minImageCount = chooseSwapMinImageCount(surfaceCapabilities);
+
+        vk::SwapchainCreateInfoKHR swapChainCreateInfo{.surface = *mSurface,
+                                                       .minImageCount = minImageCount,
+                                                       .imageFormat = mSwapChainSurfaceFormat.format,
+                                                       .imageColorSpace = mSwapChainSurfaceFormat.colorSpace,
+                                                       .imageExtent = mSwapChainExtent,
+                                                       .imageArrayLayers = 1,
+                                                       .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+                                                       .imageSharingMode = vk::SharingMode::eExclusive,
+                                                       .preTransform = surfaceCapabilities.currentTransform,
+                                                       .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+                                                       .presentMode = chooseSwapPresentMode(availablePresentModes),
+                                                       .clipped = true};
+
+        mSwapChain = vk::raii::SwapchainKHR(mLogicalDevice, swapChainCreateInfo);
+        mSwapChainImages = mSwapChain.getImages();
     }
 };
 
