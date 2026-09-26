@@ -48,6 +48,7 @@ class HelloTriangleApplication {
     vk::raii::Queue graphicsQueue{nullptr};
     vk::raii::SwapchainKHR mSwapChain = nullptr;
     std::vector<vk::Image> mSwapChainImages;
+    std::vector<vk::raii::ImageView> mSwapChainImageViews;
     GLFWwindow* mWindow = nullptr;
     vk::Extent2D mSwapChainExtent;
     vk::SurfaceFormatKHR mSwapChainSurfaceFormat;
@@ -83,6 +84,7 @@ class HelloTriangleApplication {
         pickPhysicalDevice();
         createLogicalDevice();
         createSwapChain();
+        createImageViews();
     }
 
 
@@ -366,6 +368,21 @@ class HelloTriangleApplication {
 
         mSwapChain = vk::raii::SwapchainKHR(mLogicalDevice, swapChainCreateInfo);
         mSwapChainImages = mSwapChain.getImages();
+    }
+
+
+    void createImageViews() {
+        assert(mSwapChainImageViews.empty());
+
+        vk::ImageViewCreateInfo imageViewCreateInfo{
+            .viewType = vk::ImageViewType::e2D,
+            .format = mSwapChainSurfaceFormat.format,
+            .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
+
+        for (auto& image : mSwapChainImages) {
+            imageViewCreateInfo.image = image;
+            mSwapChainImageViews.emplace_back(mLogicalDevice, imageViewCreateInfo);
+        }
     }
 };
 
