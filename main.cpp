@@ -85,6 +85,7 @@ class HelloTriangleApplication {
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createGraphicsPipeline();
     }
 
 
@@ -383,6 +384,10 @@ class HelloTriangleApplication {
             imageViewCreateInfo.image = image;
             mSwapChainImageViews.emplace_back(mLogicalDevice, imageViewCreateInfo);
         }
+    }
+
+
+    void createGraphicsPipeline() {
     }
 };
 
