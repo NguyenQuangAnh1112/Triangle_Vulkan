@@ -76,21 +76,22 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/VulkanTest.dir/clean
+clean: CMakeFiles/SlangShaders.dir/clean
 .PHONY : clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/VulkanTest.dir
 
 # All Build rule for target.
-CMakeFiles/VulkanTest.dir/all:
+CMakeFiles/VulkanTest.dir/all: CMakeFiles/SlangShaders.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/VulkanTest.dir/build.make CMakeFiles/VulkanTest.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/VulkanTest.dir/build.make CMakeFiles/VulkanTest.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles --progress-num=1,2 "Built target VulkanTest"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles --progress-num=2,3 "Built target VulkanTest"
 .PHONY : CMakeFiles/VulkanTest.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/VulkanTest.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/VulkanTest.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles 0
 .PHONY : CMakeFiles/VulkanTest.dir/rule
@@ -100,15 +101,47 @@ VulkanTest: CMakeFiles/VulkanTest.dir/rule
 .PHONY : VulkanTest
 
 # codegen rule for target.
-CMakeFiles/VulkanTest.dir/codegen:
+CMakeFiles/VulkanTest.dir/codegen: CMakeFiles/SlangShaders.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/VulkanTest.dir/build.make CMakeFiles/VulkanTest.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles --progress-num=1,2 "Finished codegen for target VulkanTest"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles --progress-num=2,3 "Finished codegen for target VulkanTest"
 .PHONY : CMakeFiles/VulkanTest.dir/codegen
 
 # clean rule for target.
 CMakeFiles/VulkanTest.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/VulkanTest.dir/build.make CMakeFiles/VulkanTest.dir/clean
 .PHONY : CMakeFiles/VulkanTest.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/SlangShaders.dir
+
+# All Build rule for target.
+CMakeFiles/SlangShaders.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SlangShaders.dir/build.make CMakeFiles/SlangShaders.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SlangShaders.dir/build.make CMakeFiles/SlangShaders.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles --progress-num=1 "Built target SlangShaders"
+.PHONY : CMakeFiles/SlangShaders.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/SlangShaders.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles 1
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/SlangShaders.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles 0
+.PHONY : CMakeFiles/SlangShaders.dir/rule
+
+# Convenience name for target.
+SlangShaders: CMakeFiles/SlangShaders.dir/rule
+.PHONY : SlangShaders
+
+# codegen rule for target.
+CMakeFiles/SlangShaders.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SlangShaders.dir/build.make CMakeFiles/SlangShaders.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles --progress-num=1 "Finished codegen for target SlangShaders"
+.PHONY : CMakeFiles/SlangShaders.dir/codegen
+
+# clean rule for target.
+CMakeFiles/SlangShaders.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SlangShaders.dir/build.make CMakeFiles/SlangShaders.dir/clean
+.PHONY : CMakeFiles/SlangShaders.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

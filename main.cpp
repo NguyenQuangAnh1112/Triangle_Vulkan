@@ -10,14 +10,28 @@
 #include <cstdint>
 #include <limits>
 #include <algorithm>
+#include <fstream>
 
 
 static constexpr uint32_t WIDTH = 800;
 static constexpr uint32_t HEIGHT = 600;
 
-const std::vector<char const*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation",
-};
+static std::vector<char> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Không thể mở file shader: " + filename);
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+
+    file.close();
+    return buffer;
+}
 
 std::vector<const char*> requiredDeviceExtensions = {vk::KHRSwapchainExtensionName};
 
@@ -27,6 +41,9 @@ constexpr bool enableValidationlayers = false;
 constexpr bool enableValidationlayers = true;
 #endif
 
+
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"};
 
 class HelloTriangleApplication {
   public:
@@ -388,6 +405,32 @@ class HelloTriangleApplication {
 
 
     void createGraphicsPipeline() {
+        auto shaderCode = readFile("./shaders/slang.spv");
+        vk::raii::ShaderModule shaderModule = createShaderModule(shaderCode);
+
+        vk::PipelineShaderStageCreateInfo verShaderStateInfo{
+            .stage = vk::ShaderStageFlagBits::eVertex,
+            .module = shaderModule,
+            .pName = "vertMain"};
+
+        vk::PipelineShaderStageCreateInfo fragShaderStageInfo{
+            .stage = vk::ShaderStageFlagBits::eFragment,
+            .module = shaderModule,
+            .pName = "fragMain"};
+
+        vk::PipelineShaderStageCreateInfo shaderStages[] = {verShaderStateInfo, fragShaderStageInfo};
+    }
+
+
+    [[nodiscard]]
+    vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const {
+        vk::ShaderModuleCreateInfo shaderModuleCreateInfo{
+            .codeSize = code.size() * sizeof(char),
+            .pCode = reinterpret_cast<const uint32_t*>(code.data())};
+
+        vk::raii::ShaderModule shaderModule{mLogicalDevice, shaderModuleCreateInfo};
+
+        return shaderModule;
     }
 };
 

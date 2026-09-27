@@ -1,0 +1,14 @@
+{
+  "searchPaths": [
+    "shaders"
+  ],
+  "predefinedMacros": {
+    "VULKAN": "1"
+  },
+  "targets": [
+    {
+      "format": "spirv",
+      "profile": "glsl_450"
+    }
+  ]
+}

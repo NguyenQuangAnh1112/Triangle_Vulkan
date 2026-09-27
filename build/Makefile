@@ -129,6 +129,19 @@ VulkanTest/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/VulkanTest.dir/build.make CMakeFiles/VulkanTest.dir/build
 .PHONY : VulkanTest/fast
 
+#=============================================================================
+# Target rules for targets named SlangShaders
+
+# Build rule for target.
+SlangShaders: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 SlangShaders
+.PHONY : SlangShaders
+
+# fast build rule for target.
+SlangShaders/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SlangShaders.dir/build.make CMakeFiles/SlangShaders.dir/build
+.PHONY : SlangShaders/fast
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -161,6 +174,7 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... SlangShaders"
 	@echo "... VulkanTest"
 	@echo "... main.o"
 	@echo "... main.i"

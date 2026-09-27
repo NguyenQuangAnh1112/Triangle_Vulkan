@@ -112,6 +112,7 @@ CMakeFiles/VulkanTest.dir/main.cpp.o: /home/muggle/hlt/c2p/vulkan_learn/main.cpp
   /usr/include/c++/16/bits/exception_defines.h \
   /usr/include/c++/16/bits/exception_ptr.h \
   /usr/include/c++/16/bits/formatfwd.h \
+  /usr/include/c++/16/bits/fstream.tcc \
   /usr/include/c++/16/bits/functexcept.h \
   /usr/include/c++/16/bits/functional_hash.h \
   /usr/include/c++/16/bits/hash_bytes.h \
@@ -214,6 +215,7 @@ CMakeFiles/VulkanTest.dir/main.cpp.o: /home/muggle/hlt/c2p/vulkan_learn/main.cpp
   /usr/include/c++/16/ext/string_conversions.h \
   /usr/include/c++/16/ext/type_traits.h \
   /usr/include/c++/16/format \
+  /usr/include/c++/16/fstream \
   /usr/include/c++/16/initializer_list \
   /usr/include/c++/16/ios \
   /usr/include/c++/16/iosfwd \
@@ -243,8 +245,10 @@ CMakeFiles/VulkanTest.dir/main.cpp.o: /home/muggle/hlt/c2p/vulkan_learn/main.cpp
   /usr/include/c++/16/vector \
   /usr/include/c++/16/version \
   /usr/include/c++/16/x86_64-redhat-linux/bits/atomic_word.h \
+  /usr/include/c++/16/x86_64-redhat-linux/bits/basic_file.h \
   /usr/include/c++/16/x86_64-redhat-linux/bits/c++allocator.h \
   /usr/include/c++/16/x86_64-redhat-linux/bits/c++config.h \
+  /usr/include/c++/16/x86_64-redhat-linux/bits/c++io.h \
   /usr/include/c++/16/x86_64-redhat-linux/bits/c++locale.h \
   /usr/include/c++/16/x86_64-redhat-linux/bits/cpu_defines.h \
   /usr/include/c++/16/x86_64-redhat-linux/bits/ctype_base.h \
@@ -438,6 +442,10 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 
 /usr/include/errno.h:
 
+/usr/include/dlfcn.h:
+
+/usr/include/c++/16/x86_64-redhat-linux/bits/time_members.h:
+
 /usr/include/c++/16/bits/locale_classes.tcc:
 
 /usr/include/c++/16/bits/intcmp.h:
@@ -465,6 +473,12 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 /usr/include/c++/16/bits/move.h:
 
 /usr/include/c++/16/x86_64-redhat-linux/bits/ctype_inline.h:
+
+/usr/include/stdint.h:
+
+/usr/include/endian.h:
+
+/usr/include/c++/16/bits/exception.h:
 
 /usr/include/c++/16/bits/cxxabi_init_exception.h:
 
@@ -530,8 +544,6 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 
 /usr/include/c++/16/backward/binders.h:
 
-/usr/include/c++/16/span:
-
 /usr/include/c++/16/bits/locale_conv.h:
 
 /usr/include/c++/16/bits/streambuf.tcc:
@@ -561,12 +573,6 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 /usr/include/c++/16/bits/cxxabi_forced.h:
 
 /usr/include/c++/16/cwctype:
-
-/usr/include/stdint.h:
-
-/usr/include/c++/16/bits/exception.h:
-
-/usr/include/endian.h:
 
 /usr/include/bits/types/sigset_t.h:
 
@@ -652,8 +658,6 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 
 /usr/include/bits/byteswap.h:
 
-/usr/include/c++/16/bits/requires_hosted.h:
-
 /usr/include/asm/posix_types.h:
 
 /usr/include/bits/time.h:
@@ -679,14 +683,6 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 /usr/include/asm/types.h:
 
 /usr/include/alloca.h:
-
-/usr/include/c++/16/bits/localefwd.h:
-
-/usr/include/bits/types/time_t.h:
-
-/usr/include/c++/16/bits/ostream.tcc:
-
-/usr/include/c++/16/bits/shared_ptr_atomic.h:
 
 /usr/include/c++/16/bits/functional_hash.h:
 
@@ -772,6 +768,14 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 
 /usr/include/c++/16/bits/stl_construct.h:
 
+/usr/include/bits/types/time_t.h:
+
+/usr/include/c++/16/bits/localefwd.h:
+
+/usr/include/c++/16/bits/ostream.tcc:
+
+/usr/include/c++/16/bits/shared_ptr_atomic.h:
+
 /usr/include/vulkan/vk_platform.h:
 
 /usr/include/bits/stdint-uintn.h:
@@ -789,6 +793,8 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 /usr/include/linux/posix_types.h:
 
 /usr/include/bits/types/FILE.h:
+
+/usr/include/c++/16/bits/fstream.tcc:
 
 /usr/include/bits/types/__locale_t.h:
 
@@ -838,6 +844,10 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 
 /usr/include/c++/16/limits:
 
+/usr/include/c++/16/span:
+
+/usr/include/c++/16/x86_64-redhat-linux/bits/c++io.h:
+
 /usr/include/c++/16/x86_64-redhat-linux/bits/messages_members.h:
 
 /usr/include/bits/stdint-least.h:
@@ -886,7 +896,7 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 
 /usr/include/c++/16/bits/unique_ptr.h:
 
-/usr/include/c++/16/x86_64-redhat-linux/bits/time_members.h:
+/usr/include/c++/16/fstream:
 
 /usr/include/c++/16/bits/version.h:
 
@@ -895,8 +905,6 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 /usr/include/c++/16/compare:
 
 /usr/include/c++/16/tuple:
-
-/usr/include/dlfcn.h:
 
 /usr/include/c++/16/bits/locale_classes.h:
 
@@ -989,6 +997,10 @@ CMakeFiles/VulkanTest.dir/main.cpp.o:
 /usr/include/asm-generic/int-ll64.h:
 
 /usr/include/c++/16/version:
+
+/usr/include/c++/16/bits/requires_hosted.h:
+
+/usr/include/c++/16/x86_64-redhat-linux/bits/basic_file.h:
 
 /usr/include/c++/16/x86_64-redhat-linux/bits/gthr-default.h:
 
