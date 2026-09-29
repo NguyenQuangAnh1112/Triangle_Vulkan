@@ -1,4 +1,0 @@
-/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles/VulkanTest.dir
-/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles/SlangShaders.dir
-/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles/edit_cache.dir
-/home/muggle/hlt/c2p/vulkan_learn/build/CMakeFiles/rebuild_cache.dir

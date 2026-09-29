@@ -1,0 +1,30 @@
+# Build outputs
+build/
+bin/
+
+# Compiled Object files & libraries
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# CMake files
+CMakeUserPresets.json
+
+# Tooling & Language Server cache
+compile_commands.json
+.cache/
+.clangd/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db

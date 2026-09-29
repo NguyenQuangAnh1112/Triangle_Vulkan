@@ -1,1 +1,0 @@
-/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/VulkanTest.dir/link.d CMakeFiles/VulkanTest.dir/main.cpp.o -o VulkanTest  /usr/lib64/libvulkan.so /usr/lib64/libglfw.so.3.4
