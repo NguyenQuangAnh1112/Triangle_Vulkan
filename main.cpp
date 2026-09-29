@@ -62,7 +62,7 @@ class HelloTriangleApplication {
     vk::raii::SurfaceKHR mSurface{nullptr};
     vk::raii::PhysicalDevice mPhysicalDevice{nullptr};
     vk::raii::Device mLogicalDevice{nullptr};
-    vk::raii::Queue graphicsQueue{nullptr};
+    vk::raii::Queue mGraphicsQueue{nullptr};
     vk::raii::SwapchainKHR mSwapChain = nullptr;
     std::vector<vk::Image> mSwapChainImages;
     std::vector<vk::raii::ImageView> mSwapChainImageViews;
@@ -74,6 +74,9 @@ class HelloTriangleApplication {
     vk::raii::CommandPool mCommandPool = nullptr;
     uint32_t mQueueIndex = ~0;
     vk::raii::CommandBuffer mCommandBuffer = nullptr;
+    vk::raii::Semaphore mPresentCompleteSemaphore = nullptr;
+    vk::raii::Semaphore mRenderFinishedSemaphore = nullptr;
+    vk::raii::Fence mDrawFence = nullptr;
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
         vk::DebugUtilsMessageTypeFlagsEXT type,
@@ -110,6 +113,7 @@ class HelloTriangleApplication {
         createGraphicsPipeline();
         createCommandPool();
         createCommandBuffer();
+        createSyncObject();
     }
 
 
@@ -138,7 +142,10 @@ class HelloTriangleApplication {
     void mainLoop() {
         while (!glfwWindowShouldClose(mWindow)) {
             glfwPollEvents();
+            drawFrame();
         }
+
+        mLogicalDevice.waitIdle();
     }
 
 
@@ -295,7 +302,7 @@ class HelloTriangleApplication {
             featureChain = {
                 {},
                 {.shaderDrawParameters = true},
-                {.dynamicRendering = true},
+                {.synchronization2 = true, .dynamicRendering = true},
                 {.extendedDynamicState = true},
             };
 
@@ -316,7 +323,7 @@ class HelloTriangleApplication {
         };
 
         mLogicalDevice = vk::raii::Device(mPhysicalDevice, deviceCreateInfo);
-        graphicsQueue = vk::raii::Queue(mLogicalDevice, queueIndex, 0);
+        mGraphicsQueue = vk::raii::Queue(mLogicalDevice, queueIndex, 0);
     }
 
 
@@ -581,6 +588,8 @@ class HelloTriangleApplication {
         mCommandBuffer.endRendering();
 
         transition_image_for_present(imageIndex);
+
+        mCommandBuffer.end();
     }
 
 
@@ -637,6 +646,47 @@ class HelloTriangleApplication {
             {},
             vk::PipelineStageFlagBits2::eColorAttachmentOutput,
             vk::PipelineStageFlagBits2::eBottomOfPipe);
+    }
+
+
+    void drawFrame() {
+        auto fenceResult = mLogicalDevice.waitForFences(*mDrawFence, vk::True, UINT64_MAX);
+        if (fenceResult != vk::Result::eSuccess) {
+            throw std::runtime_error("failed to wait for fence!");
+        }
+        mLogicalDevice.resetFences(*mDrawFence);
+
+        auto [result, imageIndex] = mSwapChain.acquireNextImage(UINT64_MAX, *mPresentCompleteSemaphore, nullptr);
+
+        recordCommandBuffer(imageIndex);
+
+        vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+        const vk::SubmitInfo submitInfo{
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &*mPresentCompleteSemaphore,
+            .pWaitDstStageMask = &waitDestinationStageMask,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &*mCommandBuffer,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &*mRenderFinishedSemaphore};
+
+        mGraphicsQueue.submit(submitInfo, *mDrawFence);
+
+        const vk::PresentInfoKHR presentInfoKHR{
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &*mRenderFinishedSemaphore,
+            .swapchainCount = 1,
+            .pSwapchains = &*mSwapChain,
+            .pImageIndices = &imageIndex};
+
+        result = mGraphicsQueue.presentKHR(presentInfoKHR);
+    }
+
+
+    void createSyncObject() {
+        mPresentCompleteSemaphore = vk::raii::Semaphore(mLogicalDevice, vk::SemaphoreCreateInfo());
+        mRenderFinishedSemaphore = vk::raii::Semaphore(mLogicalDevice, vk::SemaphoreCreateInfo());
+        mDrawFence = vk::raii::Fence(mLogicalDevice, {.flags = vk::FenceCreateFlagBits::eSignaled});
     }
 };
 
