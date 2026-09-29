@@ -70,6 +70,7 @@ class HelloTriangleApplication {
     vk::Extent2D mSwapChainExtent;
     vk::SurfaceFormatKHR mSwapChainSurfaceFormat;
     vk::raii::PipelineLayout mPipelineLayout = nullptr;
+    vk::raii::Pipeline mGraphicsPipeline = nullptr;
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
         vk::DebugUtilsMessageTypeFlagsEXT type,
@@ -487,6 +488,27 @@ class HelloTriangleApplication {
             .pushConstantRangeCount = 0};
 
         mPipelineLayout = vk::raii::PipelineLayout(mLogicalDevice, pipelineLayoutInfo);
+
+        // ==================================================================
+        vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+            {.stageCount = 2,
+             .pStages = shaderStages,
+             .pVertexInputState = &vertexInputInfo,
+             .pInputAssemblyState = &inputAssemblyInfo,
+             .pViewportState = &viewportState,
+             .pRasterizationState = &rasterizer,
+             .pMultisampleState = &multisampling,
+             .pColorBlendState = &colorBlending,
+             .pDynamicState = &dynamicState,
+             .layout = *mPipelineLayout,
+             .renderPass = nullptr},
+            {.colorAttachmentCount = 1,
+             .pColorAttachmentFormats = &mSwapChainSurfaceFormat.format}};
+
+        mGraphicsPipeline = mLogicalDevice.createGraphicsPipeline(
+            nullptr,
+            pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+        // ==================================================================
     }
 
 
