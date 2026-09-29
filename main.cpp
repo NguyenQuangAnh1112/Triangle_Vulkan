@@ -71,6 +71,9 @@ class HelloTriangleApplication {
     vk::SurfaceFormatKHR mSwapChainSurfaceFormat;
     vk::raii::PipelineLayout mPipelineLayout = nullptr;
     vk::raii::Pipeline mGraphicsPipeline = nullptr;
+    vk::raii::CommandPool mCommandPool = nullptr;
+    uint32_t mQueueIndex = ~0;
+    vk::raii::CommandBuffer mCommandBuffer = nullptr;
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
         vk::DebugUtilsMessageTypeFlagsEXT type,
@@ -105,6 +108,8 @@ class HelloTriangleApplication {
         createSwapChain();
         createImageViews();
         createGraphicsPipeline();
+        createCommandPool();
+        createCommandBuffer();
     }
 
 
@@ -275,6 +280,8 @@ class HelloTriangleApplication {
                 break;
             }
         }
+
+        mQueueIndex = queueIndex;
 
         if (queueIndex == ~0) {
             throw std::runtime_error("Could not find a queue for graphics and present -> terminating");
@@ -521,6 +528,115 @@ class HelloTriangleApplication {
         vk::raii::ShaderModule shaderModule{mLogicalDevice, shaderModuleCreateInfo};
 
         return shaderModule;
+    }
+
+
+    void createCommandPool() {
+        vk::CommandPoolCreateInfo poolInfo{
+            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            .queueFamilyIndex = mQueueIndex};
+
+        mCommandPool = vk::raii::CommandPool(mLogicalDevice, poolInfo);
+    }
+
+
+    void createCommandBuffer() {
+        vk::CommandBufferAllocateInfo allocInfo{
+            .commandPool = mCommandPool,
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = 1};
+
+        mCommandBuffer = std::move(vk::raii::CommandBuffers(mLogicalDevice, allocInfo).front());
+    };
+
+
+    void recordCommandBuffer(uint32_t imageIndex) {
+        mCommandBuffer.begin({});
+
+        transition_image_for_rendering(imageIndex);
+
+        vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+        vk::RenderingAttachmentInfo attachmentInfo = {
+            .imageView = mSwapChainImageViews[imageIndex],
+            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .clearValue = clearColor};
+
+        vk::RenderingInfo renderingInfo = {
+            .renderArea = {.offset = {0, 0}, .extent = mSwapChainExtent},
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &attachmentInfo};
+
+        mCommandBuffer.beginRendering(renderingInfo);
+
+        mCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *mGraphicsPipeline);
+
+        mCommandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(mSwapChainExtent.width), static_cast<float>(mSwapChainExtent.height), 0.0f, 1.0f));
+        mCommandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), mSwapChainExtent));
+
+        mCommandBuffer.draw(3, 1, 0, 0);
+
+        mCommandBuffer.endRendering();
+
+        transition_image_for_present(imageIndex);
+    }
+
+
+    void transition_image_layout(
+        uint32_t imageIndex,
+        vk::ImageLayout old_layout,
+        vk::ImageLayout new_layout,
+        vk::AccessFlags2 src_access_mask,
+        vk::AccessFlags2 dst_access_mask,
+        vk::PipelineStageFlags2 src_stage_mask,
+        vk::PipelineStageFlags2 dst_stage_mask) {
+        vk::ImageMemoryBarrier2 barrier = {
+            .srcStageMask = src_stage_mask,
+            .srcAccessMask = src_access_mask,
+            .dstStageMask = dst_stage_mask,
+            .dstAccessMask = dst_access_mask,
+            .oldLayout = old_layout,
+            .newLayout = new_layout,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = mSwapChainImages[imageIndex],
+            .subresourceRange = {
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1}};
+        vk::DependencyInfo dependency_info = {
+            .dependencyFlags = {},
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier};
+        mCommandBuffer.pipelineBarrier2(dependency_info);
+    }
+
+
+    void transition_image_for_rendering(uint32_t imageIndex) {
+        transition_image_layout(
+            imageIndex,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eColorAttachmentOptimal,
+            {},
+            vk::AccessFlagBits2::eColorAttachmentWrite,
+            vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+    }
+
+
+    void transition_image_for_present(uint32_t imageIndex) {
+        transition_image_layout(
+            imageIndex,
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::ImageLayout::ePresentSrcKHR,
+            vk::AccessFlagBits2::eColorAttachmentWrite,
+            {},
+            vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits2::eBottomOfPipe);
     }
 };
 
