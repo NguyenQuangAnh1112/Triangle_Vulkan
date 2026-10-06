@@ -1,5 +1,6 @@
 #define GLFW_INCLUDE_VULKAN
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#define VULKAN_HPP_HANDLE_EROR_OUT_STRUCT_CRUCTORS
 
 #include <vulkan/vulkan_raii.hpp>
 #include <GLFW/glfw3.h>
@@ -11,10 +12,13 @@
 #include <limits>
 #include <algorithm>
 #include <fstream>
+#include <array>
+#include <glm/glm.hpp>
 
 
 static constexpr uint32_t WIDTH = 800;
 static constexpr uint32_t HEIGHT = 600;
+constexpr int MAX_FRAME_IN_FLIGHT = 2;
 
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -45,6 +49,47 @@ constexpr bool enableValidationlayers = true;
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"};
 
+
+struct Vertex {
+    glm::vec2 pos;
+    glm::vec3 color;
+
+
+    static vk::VertexInputBindingDescription getBindingDescription() {
+        return vk::VertexInputBindingDescription{
+            .binding = 0,
+            .stride = 20,
+            .inputRate = vk::VertexInputRate::eVertex};
+    }
+
+    // return an array include two VertexInputAttributeDescription
+    static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescription() {
+        return std::array<vk::VertexInputAttributeDescription, 2>{
+            // attribute 1: position
+            vk::VertexInputAttributeDescription{
+                .location = 0,
+                .binding = 0,
+                .format = vk::Format::eR32G32Sfloat,
+                .offset = static_cast<uint32_t>(offsetof(Vertex, pos))},
+
+            // attibute 2: color
+            vk::VertexInputAttributeDescription{
+                .location = 1,
+                .binding = 0,
+                .format = vk::Format::eR32G32Sfloat,
+                .offset = static_cast<uint32_t>(offsetof(Vertex, color))},
+        };
+    }
+};
+
+
+const std::vector<Vertex> vertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // Đỉnh trên: Màu đỏ
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},  // Đỉnh phải dưới: Màu lục
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}  // Đỉnh trái dưới: Màu lam;
+};
+
+
 class HelloTriangleApplication {
   public:
     void run() {
@@ -73,10 +118,12 @@ class HelloTriangleApplication {
     vk::raii::Pipeline mGraphicsPipeline = nullptr;
     vk::raii::CommandPool mCommandPool = nullptr;
     uint32_t mQueueIndex = ~0;
-    vk::raii::CommandBuffer mCommandBuffer = nullptr;
-    vk::raii::Semaphore mPresentCompleteSemaphore = nullptr;
-    vk::raii::Semaphore mRenderFinishedSemaphore = nullptr;
-    vk::raii::Fence mDrawFence = nullptr;
+    uint32_t mCurrentFrame = 0;
+    std::vector<vk::raii::CommandBuffer> mCommandBuffers;
+    std::vector<vk::raii::Semaphore> mPresentCompleteSemaphores;
+    std::vector<vk::raii::Semaphore> mRenderFinishedSemaphores;
+    std::vector<vk::raii::Fence> mInFlightFences;
+    bool mFramebufferResized = false;
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
         vk::DebugUtilsMessageTypeFlagsEXT type,
@@ -96,9 +143,11 @@ class HelloTriangleApplication {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
         mWindow = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        glfwSetWindowUserPointer(mWindow, this);
+        glfwSetFramebufferSizeCallback(mWindow, framebufferResizeCallback);
     }
 
 
@@ -112,8 +161,8 @@ class HelloTriangleApplication {
         createImageViews();
         createGraphicsPipeline();
         createCommandPool();
-        createCommandBuffer();
-        createSyncObject();
+        createCommandBuffers();
+        createSyncObjects();
     }
 
 
@@ -150,6 +199,7 @@ class HelloTriangleApplication {
 
 
     void cleanup() {
+        cleanupSwapChain();
         glfwDestroyWindow(mWindow);
         glfwTerminate();
     }
@@ -437,7 +487,15 @@ class HelloTriangleApplication {
         vk::PipelineShaderStageCreateInfo shaderStages[] = {verShaderStateInfo, fragShaderStageInfo};
 
 
-        vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+        auto bindingDescription = Vertex::getBindingDescription();
+        auto attributeDescription = Vertex::getAttributeDescription();
+
+        vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+            .vertexBindingDescriptionCount = 1,
+            .pVertexBindingDescriptions = &bindingDescription,
+            .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescription.size()),
+            .pVertexAttributeDescriptions = attributeDescription.data(),
+        };
 
         vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo{
             .topology = vk::PrimitiveTopology::eTriangleList};
@@ -547,18 +605,19 @@ class HelloTriangleApplication {
     }
 
 
-    void createCommandBuffer() {
+    void createCommandBuffers() {
         vk::CommandBufferAllocateInfo allocInfo{
             .commandPool = mCommandPool,
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = 1};
+            .commandBufferCount = MAX_FRAME_IN_FLIGHT};
 
-        mCommandBuffer = std::move(vk::raii::CommandBuffers(mLogicalDevice, allocInfo).front());
+        mCommandBuffers = vk::raii::CommandBuffers(mLogicalDevice, allocInfo);
     };
 
 
     void recordCommandBuffer(uint32_t imageIndex) {
-        mCommandBuffer.begin({});
+        auto& commandBuffer = mCommandBuffers[mCurrentFrame];
+        commandBuffer.begin({});
 
         transition_image_for_rendering(imageIndex);
 
@@ -576,20 +635,20 @@ class HelloTriangleApplication {
             .colorAttachmentCount = 1,
             .pColorAttachments = &attachmentInfo};
 
-        mCommandBuffer.beginRendering(renderingInfo);
+        mCommandBuffers[mCurrentFrame].beginRendering(renderingInfo);
 
-        mCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *mGraphicsPipeline);
+        mCommandBuffers[mCurrentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, *mGraphicsPipeline);
 
-        mCommandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(mSwapChainExtent.width), static_cast<float>(mSwapChainExtent.height), 0.0f, 1.0f));
-        mCommandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), mSwapChainExtent));
+        mCommandBuffers[mCurrentFrame].setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(mSwapChainExtent.width), static_cast<float>(mSwapChainExtent.height), 0.0f, 1.0f));
+        mCommandBuffers[mCurrentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), mSwapChainExtent));
 
-        mCommandBuffer.draw(3, 1, 0, 0);
+        mCommandBuffers[mCurrentFrame].draw(3, 1, 0, 0);
 
-        mCommandBuffer.endRendering();
+        mCommandBuffers[mCurrentFrame].endRendering();
 
         transition_image_for_present(imageIndex);
 
-        mCommandBuffer.end();
+        commandBuffer.end();
     }
 
 
@@ -621,7 +680,7 @@ class HelloTriangleApplication {
             .dependencyFlags = {},
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = &barrier};
-        mCommandBuffer.pipelineBarrier2(dependency_info);
+        mCommandBuffers[mCurrentFrame].pipelineBarrier2(dependency_info);
     }
 
 
@@ -650,43 +709,93 @@ class HelloTriangleApplication {
 
 
     void drawFrame() {
-        auto fenceResult = mLogicalDevice.waitForFences(*mDrawFence, vk::True, UINT64_MAX);
+        auto fenceResult = mLogicalDevice.waitForFences(*mInFlightFences[mCurrentFrame], vk::True, UINT64_MAX);
         if (fenceResult != vk::Result::eSuccess) {
             throw std::runtime_error("failed to wait for fence!");
         }
-        mLogicalDevice.resetFences(*mDrawFence);
 
-        auto [result, imageIndex] = mSwapChain.acquireNextImage(UINT64_MAX, *mPresentCompleteSemaphore, nullptr);
+        auto [result, imageIndex] = mSwapChain.acquireNextImage(UINT64_MAX, *mPresentCompleteSemaphores[mCurrentFrame], nullptr);
 
+        if (result == vk::Result::eErrorOutOfDateKHR) {
+            recreateSwapChain();
+            return; // Thoát sớm, Fence vẫn Signaled nên không bao giờ bị Deadlock!
+        }
+
+        if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
+            assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
+            throw std::runtime_error("failed to acquire swap chain image!");
+        }
+
+        mLogicalDevice.resetFences(*mInFlightFences[mCurrentFrame]);
+
+        mCommandBuffers[mCurrentFrame].reset();
         recordCommandBuffer(imageIndex);
 
         vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
         const vk::SubmitInfo submitInfo{
             .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &*mPresentCompleteSemaphore,
+            .pWaitSemaphores = &*mPresentCompleteSemaphores[mCurrentFrame],
             .pWaitDstStageMask = &waitDestinationStageMask,
             .commandBufferCount = 1,
-            .pCommandBuffers = &*mCommandBuffer,
+            .pCommandBuffers = &*mCommandBuffers[mCurrentFrame],
             .signalSemaphoreCount = 1,
-            .pSignalSemaphores = &*mRenderFinishedSemaphore};
+            .pSignalSemaphores = &*mRenderFinishedSemaphores[imageIndex]};
 
-        mGraphicsQueue.submit(submitInfo, *mDrawFence);
+        mGraphicsQueue.submit(submitInfo, *mInFlightFences[mCurrentFrame]);
 
         const vk::PresentInfoKHR presentInfoKHR{
             .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &*mRenderFinishedSemaphore,
+            .pWaitSemaphores = &*mRenderFinishedSemaphores[imageIndex],
             .swapchainCount = 1,
             .pSwapchains = &*mSwapChain,
             .pImageIndices = &imageIndex};
 
         result = mGraphicsQueue.presentKHR(presentInfoKHR);
+        mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAME_IN_FLIGHT;
     }
 
 
-    void createSyncObject() {
-        mPresentCompleteSemaphore = vk::raii::Semaphore(mLogicalDevice, vk::SemaphoreCreateInfo());
-        mRenderFinishedSemaphore = vk::raii::Semaphore(mLogicalDevice, vk::SemaphoreCreateInfo());
-        mDrawFence = vk::raii::Fence(mLogicalDevice, {.flags = vk::FenceCreateFlagBits::eSignaled});
+    void createSyncObjects() {
+        for (size_t i = 0; i < mSwapChainImages.size(); i++) {
+            mRenderFinishedSemaphores.emplace_back(mLogicalDevice, vk::SemaphoreCreateInfo());
+        }
+
+        for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++) {
+            mPresentCompleteSemaphores.emplace_back(mLogicalDevice, vk::SemaphoreCreateInfo());
+            mInFlightFences.emplace_back(mLogicalDevice, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
+        }
+    }
+
+
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+        auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+        app->mFramebufferResized = true;
+    }
+
+
+    void cleanupSwapChain() {
+        mSwapChainImageViews.clear();
+        mSwapChain = nullptr;
+    }
+
+    void recreateSwapChain() {
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(mWindow, &width, &height);
+        while ((width == 0 || height == 0) && !glfwWindowShouldClose(mWindow)) {
+            glfwGetFramebufferSize(mWindow, &width, &height);
+            glfwWaitEvents();
+        }
+
+        if (glfwWindowShouldClose(mWindow)) {
+            return;
+        }
+
+        mLogicalDevice.waitIdle();
+
+        cleanupSwapChain();
+
+        createSwapChain();
+        createImageViews();
     }
 };
 
