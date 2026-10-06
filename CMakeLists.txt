@@ -9,7 +9,14 @@ cmake_minimum_required(VERSION 3.20)
     find_package(glfw3 REQUIRED)
     find_package(glm REQUIRED)
 
-    add_executable(VulkanTest main.cpp)
+    add_executable(VulkanTest
+        main.cpp
+        src/application.cpp
+        src/vertex.cpp
+        src/utils.cpp
+    )
+    
+    target_include_directories(VulkanTest PRIVATE src)
 
     target_link_libraries(VulkanTest PRIVATE
         Vulkan::Vulkan
